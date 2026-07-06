@@ -30,12 +30,13 @@ Training curves, trajectories, and the distillation loss are in
 
 ## Files
 
-- `lunar_lander_experiment.py` — standalone, reproducible script that trains
-  DQN and the GA, runs the held-out evaluation, distills the student, and
-  regenerates every plot in `results/lunar_lander/`.
-- `lunar_lander_dqn_vs_ga.ipynb` — the narrative notebook with the
-  theoretical background (MDP formulation, Bellman equations, GA operators)
-  alongside the same implementation.
+- `main.py` — entry point; runs the full experiment end to end.
+- `lunar_lander/` — package with the implementation: `config.py`
+  (hyperparameters), `networks.py` (Q/policy/student networks),
+  `replay_buffer.py`, `dqn_agent.py`, `genetic_algorithm.py` (genome codec,
+  genetic operators, GA trainer), `distillation.py`, `evaluation.py`
+  (rollout/eval helpers), `visualizer.py`, and `experiment.py` (orchestrates
+  the four phases).
 - `results/lunar_lander/` — output plots (training curves, DQN vs. GA
   comparison, trajectories, action distributions, distillation loss).
 
@@ -50,7 +51,7 @@ pip install -r requirements.txt
 ## Running
 
 ```bash
-python lunar_lander_experiment.py
+python main.py
 ```
 
 Trained weights and evaluation histories (`*.pth`, `*.npy`) are not
