@@ -44,7 +44,7 @@ drifting out of bounds.
 | Symbol | Meaning |
 |---|---|
 | $s = (x, y, v_x, v_y, \theta, \omega, \text{leg}_1, \text{leg}_2)$ | position, velocity, angle, angular velocity, leg-contact flags |
-| $a \in \{$ noop, left engine, main engine, right engine $\}$ | discrete action |
+| $a \in \{\text{noop}, \text{left engine}, \text{main engine}, \text{right engine}\}$ | discrete action |
 | $r(s,a,s')$ | shaped reward: distance/velocity/angle penalties, leg-contact bonus, fuel cost, ±100 for crash/landing |
 | solved threshold | mean return ≥ 200 over 100 episodes |
 
