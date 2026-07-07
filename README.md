@@ -175,108 +175,62 @@ interactive imitation learning like DAgger).
 ### Module/package diagram
 
 ```mermaid
-flowchart TB
-    subgraph entry["Entry point"]
-        MAIN["main.py"]
-    end
-
-    subgraph pkg["lunar_lander package"]
-        CONFIG["config.py<br/>ExperimentConfig, DEVICE, seeding"]
-        NET["networks.py<br/>QNetwork · PolicyNetwork · StudentNetwork"]
-        BUFFER["replay_buffer.py<br/>ReplayBuffer"]
-        DQN["dqn_agent.py<br/>DQNAgent"]
-        GA["genetic_algorithm.py<br/>GeneticAlgorithmTrainer + genetic ops"]
-        KD["distillation.py<br/>KnowledgeDistiller"]
-        EVAL["evaluation.py<br/>evaluate_policy · trajectory/histogram helpers"]
-        VIZ["visualizer.py<br/>LunarLanderVisualizer"]
-        EXP["experiment.py<br/>ExperimentRunner (orchestrator)"]
-    end
-
-    subgraph ext["External"]
-        GYM["Gymnasium<br/>LunarLander-v3"]
-        RESULTS["results/lunar_lander/<br/>*.png, *.pth, *.npy"]
-    end
-
-    MAIN --> EXP
-    EXP --> CONFIG
-    EXP --> DQN
-    EXP --> GA
-    EXP --> KD
-    EXP --> EVAL
-    EXP --> VIZ
-    EXP --> GYM
-
-    DQN --> NET
-    DQN --> BUFFER
-    DQN --> CONFIG
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+flowchart LR
+    MAIN["main.py"] --> EXP["experiment.py<br/>ExperimentRunner"]
+    EXP --> DQN["dqn_agent.py"]
+    EXP --> GA["genetic_algorithm.py"]
+    EXP --> KD["distillation.py"]
+    EXP --> VIZ["visualizer.py"]
+    DQN --> NET["networks.py"]
     GA --> NET
-    GA --> CONFIG
-    GA --> GYM
     KD --> NET
-    KD --> CONFIG
+    DQN --> BUFFER["replay_buffer.py"]
+    DQN --> GYM["Gymnasium env"]
+    GA --> GYM
     KD --> GYM
-    EVAL --> GYM
-    VIZ --> RESULTS
-    EXP --> RESULTS
+    ALL["config.py"] -.-> DQN
+    ALL -.-> GA
+    ALL -.-> KD
 ```
+
+`config.py` supplies shared hyperparameters/seeding to the DQN, GA, and
+distillation modules (dashed edges); `evaluation.py` is used by all three
+for Monte-Carlo rollouts and is omitted here for clarity.
 
 ### Class diagram (UML)
 
 ```mermaid
 classDiagram
+    direction TB
+
     class ExperimentConfig {
         +int seed
-        +str env_name
-        +float solved_threshold
         +int dqn_episodes
-        +float dqn_gamma
-        +float dqn_lr
-        +int dqn_batch_size
-        +int dqn_buffer_capacity
-        +int dqn_warmup_steps
-        +int dqn_target_sync
-        +float dqn_epsilon_start
-        +float dqn_epsilon_decay
-        +float dqn_epsilon_min
-        +int ga_population_size
-        +int ga_n_elite
         +int ga_generations
-        +float ga_mutation_std
-        +int ga_eval_episodes
-        +int kd_episodes
         +int kd_epochs
-        +float kd_lr
-        +int eval_episodes
         +Path results_dir
     }
 
     class QNetwork {
-        +Linear-ReLU-Linear-ReLU-Linear
         +forward(x) Tensor
     }
     class PolicyNetwork {
-        +Linear-Tanh-Linear-Tanh-Linear
         +forward(x) Tensor
     }
     class StudentNetwork {
-        +Linear-ReLU-Linear-ReLU-Linear (32-wide)
         +forward(x) Tensor
     }
 
     class ReplayBuffer {
-        -deque buffer
         +add(s, a, r, s2, done)
-        +sample(batch_size) Tuple~Tensor~
-        +__len__() int
+        +sample(batch_size) Tuple
     }
 
     class DQNAgent {
         +QNetwork online_net
         +QNetwork target_net
-        +Optimizer optimizer
-        +float epsilon
         +ReplayBuffer replay_buffer
-        +int total_steps
         +act(state, training) int
         +train_step() float
         +decay_epsilon()
@@ -284,12 +238,9 @@ classDiagram
 
     class GeneticAlgorithmTrainer {
         +PolicyNetwork policy_model
-        +List~ndarray~ population
-        +List~float~ best_history
-        +List~float~ mean_history
-        +List~float~ std_history
+        +List population
         +ndarray best_genome
-        +evaluate_genome(genome, episodes) float
+        +evaluate_genome(genome) float
         +run() Tuple
         +policy_fn(state) int
     }
@@ -297,8 +248,6 @@ classDiagram
     class KnowledgeDistiller {
         +Module teacher
         +StudentNetwork student
-        +List~float~ loss_history
-        -_collect_dataset() Tuple~Tensor~
         +train() StudentNetwork
         +policy_fn() Callable
     }
@@ -308,11 +257,6 @@ classDiagram
         +GeneticAlgorithmTrainer ga_trainer
         +KnowledgeDistiller distiller
         +LunarLanderVisualizer visualizer
-        +run_dqn_phase()
-        +run_ga_phase()
-        +run_comparison_phase()
-        +run_distillation_phase()
-        +save_artifacts()
         +run()
     }
 
@@ -320,42 +264,41 @@ classDiagram
         +plot_dqn_training(...)
         +plot_ga_training(...)
         +plot_method_comparison(...)
-        +plot_trajectory(...)
-        +plot_action_distribution(...)
-        +plot_distillation_loss(...)
-        +success_rate(rewards, threshold) float
     }
 
-    DQNAgent *-- QNetwork : online_net / target_net
-    DQNAgent *-- ReplayBuffer
-    GeneticAlgorithmTrainer *-- PolicyNetwork : decodes genome into
-    KnowledgeDistiller *-- StudentNetwork
-    KnowledgeDistiller ..> DQNAgent : teacher = dqn_agent.online_net
+    ExperimentRunner --> ExperimentConfig
+    ExperimentRunner --> DQNAgent
+    ExperimentRunner --> GeneticAlgorithmTrainer
+    ExperimentRunner --> KnowledgeDistiller
+    ExperimentRunner --> LunarLanderVisualizer
 
-    ExperimentRunner *-- DQNAgent
-    ExperimentRunner *-- GeneticAlgorithmTrainer
-    ExperimentRunner *-- KnowledgeDistiller
-    ExperimentRunner *-- LunarLanderVisualizer
-    ExperimentRunner ..> ExperimentConfig : configured by
-    DQNAgent ..> ExperimentConfig
-    GeneticAlgorithmTrainer ..> ExperimentConfig
-    KnowledgeDistiller ..> ExperimentConfig
+    DQNAgent --> QNetwork
+    DQNAgent --> ReplayBuffer
+    GeneticAlgorithmTrainer --> PolicyNetwork
+    KnowledgeDistiller --> StudentNetwork
+    KnowledgeDistiller --> DQNAgent
 ```
+
+`ExperimentRunner` owns one instance of each component and wires the DQN's
+trained `online_net` in as the `teacher` for `KnowledgeDistiller`. All
+four trainer/agent classes also read from `ExperimentConfig` (omitted
+above to keep the diagram readable).
 
 ### Experiment pipeline (flowchart)
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
-    START(["main.py"]) --> INIT["ExperimentRunner.__init__<br/>seed RNGs, create env, build visualizer"]
-    INIT --> P1["Phase 1 — DQN training<br/>(run_dqn_phase)"]
-    P1 --> P1E["Evaluate DQN policy<br/>(20 eval episodes) + plot trajectory"]
-    P1E --> P2["Phase 2 — GA / neuroevolution<br/>(run_ga_phase)"]
-    P2 --> P2E["Evaluate best genome<br/>(20 eval episodes) + plot trajectory"]
-    P2E --> P3["Phase 3 — Comparative analysis<br/>(run_comparison_phase)<br/>reward curves, action histograms"]
-    P3 --> P4["Phase 4 — Knowledge distillation<br/>DQN → student (run_distillation_phase)"]
-    P4 --> SAVE["save_artifacts()<br/>*.pth, *.npy → results/lunar_lander/"]
-    SAVE --> END(["Experiment complete"])
+    INIT["Setup: seed RNGs, create env"] --> P1["Phase 1: train DQN"]
+    P1 --> P2["Phase 2: evolve GA population"]
+    P2 --> P3["Phase 3: compare DQN vs. GA"]
+    P3 --> P4["Phase 4: distill DQN into student"]
+    P4 --> SAVE["Save models, metrics, plots"]
 ```
+
+Each phase also evaluates and plots its own policy (mean return, success
+rate, trajectory) immediately after training, before moving to the next
+phase.
 
 ### DQN training step (sequence diagram)
 
